@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "bomly.plugin.package.v1",
+  "id": "scorecard",
+  "name": "OpenSSF Scorecard",
+  "version": "0.1.0",
+  "kind": "matcher",
+  "runtime": "hashicorp-grpc",
+  "pluginApiVersion": "bomly.plugin.v1",
+  "bomlyVersion": ">=0.1.0",
+  "entrypoint": {
+    "linux/amd64": "bin/bomly-plugin-scorecard-matcher",
+    "linux/arm64": "bin/bomly-plugin-scorecard-matcher",
+    "darwin/amd64": "bin/bomly-plugin-scorecard-matcher",
+    "darwin/arm64": "bin/bomly-plugin-scorecard-matcher",
+    "windows/amd64": "bin/bomly-plugin-scorecard-matcher.exe"
+  },
+  "source": "github:bomly-dev/bomly-plugin-scorecard-matcher@v0.1.0",
+  "homepage": "https://github.com/bomly-dev/bomly-plugin-scorecard-matcher",
+  "license": "Apache-2.0",
+  "description": "Matcher plugin that attaches OpenSSF Scorecard project-posture data to packages with resolvable github.com source repositories."
+}
