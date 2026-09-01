@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/anchore/packageurl-go"
 	"github.com/bomly-dev/bomly-sdk"
+	"github.com/bomly-dev/bomly-sdk/purlkit"
 )
 
 // githubRepoPattern matches an org/repo segment in any github.com URL form
@@ -22,12 +22,22 @@ var githubRepoPattern = regexp.MustCompile(`github\.com[/:]([A-Za-z0-9_.-]+)/([A
 // owner/repo, so it is safe to append to the api.scorecard.dev URL.
 //
 // Resolution order, cheapest first:
-//  1. PURL `repository_url` / `vcs_url` qualifier (set by Syft for some
-//     ecosystems).
-//  2. PURL of type `golang` — module path is the repo for github.com modules.
-//  3. PURL of type `github` — `pkg:github/{owner}/{repo}`.
-//  4. PackageResolvedURL — common for npm/pnpm/yarn tarballs hosted on GitHub.
-//  5. NPM metadata `repository` link.
+//  1. The package's detected origins — the vetted ADR-0033 repository or
+//     artifact URL the detector recorded.
+//  2. PURL `repository_url` / `vcs_url` qualifier, for a PURL that arrived
+//     from outside the graph and still carries them.
+//  3. PURL of type `golang` — module path is the repo for github.com modules.
+//  4. PURL of type `github` — `pkg:github/{owner}/{repo}`.
+//  5. PackageResolvedURL — common for npm/pnpm/yarn tarballs hosted on GitHub.
+//  6. NPM metadata `repository` link.
+//
+// Origins lead because ADR-0041 moved the evidence there. The URL-valued
+// qualifiers this used to read first — repository_url, download_url, vcs_url —
+// are relocated out of a package PURL and into origins when a node is
+// constructed, so the qualifier step alone would now find nothing for any
+// package that came through the graph. That failure is silent: resolution
+// returns "" and the package is simply never scored, which looks like a
+// package with no GitHub source rather than a bug.
 //
 // Multiple packages frequently resolve to the same repo (a monorepo's npm
 // packages all point at one source); the matcher dedupes by the returned
@@ -37,6 +47,9 @@ func resolveRepo(pkg *sdk.Package) string {
 		return ""
 	}
 
+	if repo := repoFromOrigins(pkg.DetectedOrigins); repo != "" {
+		return repo
+	}
 	if repo := repoFromPURL(pkg.PURL); repo != "" {
 		return repo
 	}
@@ -49,12 +62,30 @@ func resolveRepo(pkg *sdk.Package) string {
 	return ""
 }
 
+// repoFromOrigins reads the vetted origin evidence. A repository claim is
+// preferred over an artifact URL: the first names a source repository
+// outright, while the second is a download location that merely happens to
+// be hosted on GitHub.
+func repoFromOrigins(origins []sdk.DependencyOrigin) string {
+	for _, origin := range origins {
+		if repo := extractGithubRepo(origin.Repository); repo != "" {
+			return repo
+		}
+	}
+	for _, origin := range origins {
+		if repo := extractGithubRepo(origin.ArtifactURL); repo != "" {
+			return repo
+		}
+	}
+	return ""
+}
+
 func repoFromPURL(raw string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return ""
 	}
-	parsed, err := packageurl.FromString(raw)
+	parsed, err := purlkit.Parse(raw)
 	if err != nil {
 		return ""
 	}

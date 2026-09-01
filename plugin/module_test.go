@@ -14,6 +14,7 @@ import (
 
 	sdk "github.com/bomly-dev/bomly-sdk"
 	"github.com/bomly-dev/bomly-sdk/conformance"
+	"github.com/bomly-dev/bomly-sdk/testkit"
 	"go.uber.org/zap"
 )
 
@@ -74,10 +75,10 @@ func newScorecardFixtureServer(t *testing.T) *httptest.Server {
 
 func newDeltaGraphAndRegistry(t *testing.T) (*sdk.Graph, *sdk.PackageRegistry) {
 	t.Helper()
-	scored := sdk.NewDependency(sdk.Dependency{Coordinates: sdk.Coordinates{Name: "scorecard", Version: "v5.0.0", PURL: "pkg:github/ossf/scorecard@v5.0.0"}})
-	unscored := sdk.NewDependency(sdk.Dependency{Coordinates: sdk.Coordinates{Name: "left-pad", Version: "1.3.0", PURL: "pkg:npm/left-pad@1.3.0", Ecosystem: sdk.EcosystemNPM}})
+	scored := testkit.MustDependencyNode(t, "pkg:github/ossf/scorecard@v5.0.0")
+	unscored := testkit.MustDependencyNode(t, "pkg:npm/left-pad@1.3.0")
 	graph := sdk.New()
-	for _, dep := range []*sdk.Dependency{scored, unscored} {
+	for _, dep := range []*sdk.DependencyNode{scored, unscored} {
 		if err := graph.AddNode(dep); err != nil {
 			t.Fatalf("AddNode: %v", err)
 		}
