@@ -2,7 +2,7 @@
   "schemaVersion": "bomly.plugin.package.v1",
   "id": "scorecard",
   "name": "OpenSSF Scorecard",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "kind": "matcher",
   "runtime": "hashicorp-grpc",
   "pluginApiVersion": "bomly.plugin.v1",
