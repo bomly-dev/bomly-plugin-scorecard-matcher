@@ -12,10 +12,13 @@ import (
 	"strings"
 	"testing"
 
-	sdk "github.com/bomly-dev/bomly-sdk"
 	"github.com/bomly-dev/bomly-sdk/conformance"
 	"github.com/bomly-dev/bomly-sdk/testkit"
 	"go.uber.org/zap"
+
+	"github.com/bomly-dev/bomly-sdk/httpkit"
+	"github.com/bomly-dev/bomly-sdk/model"
+	sdkplugin "github.com/bomly-dev/bomly-sdk/plugin"
 )
 
 // testHost is a minimal HostContext for unit tests.
@@ -24,9 +27,9 @@ type testHost struct {
 }
 
 func (h testHost) Logger() *zap.Logger                 { return zap.NewNop() }
-func (h testHost) HTTPClient() *sdk.HTTPClientProvider { return nil }
-func (h testHost) Runtime() sdk.RuntimeInfo {
-	return sdk.RuntimeInfo{Execution: sdk.ExecutionEmbedded}
+func (h testHost) HTTPClient() *httpkit.ClientProvider { return nil }
+func (h testHost) Runtime() sdkplugin.RuntimeInfo {
+	return sdkplugin.RuntimeInfo{Execution: sdkplugin.ExecutionEmbedded}
 }
 
 func (h testHost) DecodeConfig(v any) error {
@@ -73,17 +76,17 @@ func newScorecardFixtureServer(t *testing.T) *httptest.Server {
 	return server
 }
 
-func newDeltaGraphAndRegistry(t *testing.T) (*sdk.Graph, *sdk.PackageRegistry) {
+func newDeltaGraphAndRegistry(t *testing.T) (*model.Graph, *model.PackageRegistry) {
 	t.Helper()
 	scored := testkit.MustDependencyNode(t, "pkg:github/ossf/scorecard@v5.0.0")
 	unscored := testkit.MustDependencyNode(t, "pkg:npm/left-pad@1.3.0")
-	graph := sdk.New()
-	for _, dep := range []*sdk.DependencyNode{scored, unscored} {
+	graph := model.New()
+	for _, dep := range []*model.DependencyNode{scored, unscored} {
 		if err := graph.AddNode(dep); err != nil {
 			t.Fatalf("AddNode: %v", err)
 		}
 	}
-	return graph, sdk.NewPackageRegistry()
+	return graph, model.NewPackageRegistry()
 }
 
 func newDeltaMatcher(t *testing.T, apiBase string) *Matcher {
@@ -104,7 +107,7 @@ func TestMatchDeltaEquivalence(t *testing.T) {
 	server := newScorecardFixtureServer(t)
 
 	legacyGraph, legacyRegistry := newDeltaGraphAndRegistry(t)
-	legacy, err := newDeltaMatcher(t, server.URL).Match(context.Background(), sdk.MatchRequest{
+	legacy, err := newDeltaMatcher(t, server.URL).Match(context.Background(), sdkplugin.MatchRequest{
 		Graph:    legacyGraph,
 		Registry: legacyRegistry,
 	})
@@ -113,7 +116,7 @@ func TestMatchDeltaEquivalence(t *testing.T) {
 	}
 
 	deltaGraph, deltaRegistry := newDeltaGraphAndRegistry(t)
-	delta, err := newDeltaMatcher(t, server.URL).Match(context.Background(), sdk.MatchRequest{
+	delta, err := newDeltaMatcher(t, server.URL).Match(context.Background(), sdkplugin.MatchRequest{
 		Graph:                deltaGraph,
 		Registry:             deltaRegistry,
 		AcceptPackageUpdates: true,
@@ -147,7 +150,7 @@ func TestMatchDeltaEquivalence(t *testing.T) {
 		}
 	}
 
-	merged := sdk.ApplyPackageUpdates(deltaRegistry, delta.PackageUpdates)
+	merged := model.ApplyPackageUpdates(deltaRegistry, delta.PackageUpdates)
 	if diff := registryDiff(legacy.Registry, merged); diff != "" {
 		t.Fatalf("merged delta registry differs from legacy registry: %s", diff)
 	}
@@ -157,7 +160,7 @@ func TestMatchDeltaEquivalence(t *testing.T) {
 }
 
 // registryDiff deep-compares two registries package by package.
-func registryDiff(want, got *sdk.PackageRegistry) string {
+func registryDiff(want, got *model.PackageRegistry) string {
 	wantPkgs := want.All()
 	gotPkgs := got.All()
 	if len(wantPkgs) != len(gotPkgs) {

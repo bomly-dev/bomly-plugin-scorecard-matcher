@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bomly-dev/bomly-sdk"
+	sdkplugin "github.com/bomly-dev/bomly-sdk/plugin"
 )
 
 // Name is the plugin's identity. It MUST equal the "id" field in
@@ -29,14 +29,14 @@ type moduleConfig struct {
 
 // moduleDescriptor is the matcher's static registration data, shared by the
 // embedded Descriptor method and the managed Module constructor.
-func moduleDescriptor() sdk.MatcherDescriptor {
+func moduleDescriptor() sdkplugin.MatcherDescriptor {
 	descriptor := (&Matcher{}).Descriptor()
-	descriptor.ConfigSchema = sdk.MustConfigSchemaFor(moduleConfig{})
+	descriptor.ConfigSchema = sdkplugin.MustConfigSchemaFor(moduleConfig{})
 	return descriptor
 }
 
 // configFromHost builds the matcher Config from the host-provided JSON block.
-func configFromHost(host sdk.HostContext) (Config, error) {
+func configFromHost(host sdkplugin.HostContext) (Config, error) {
 	var raw moduleConfig
 	if err := host.DecodeConfig(&raw); err != nil {
 		return Config{}, fmt.Errorf("decode scorecard matcher configuration: %w", err)
@@ -70,12 +70,12 @@ func configFromHost(host sdk.HostContext) (Config, error) {
 // Module packages the matcher for both execution modes: Bomly can embed it
 // in-process or serve it as a managed plugin subprocess (see
 // cmd/bomly-plugin-scorecard-matcher).
-func Module() sdk.Module {
-	return sdk.Module{
-		Kind: sdk.PluginKindMatcher,
-		Matcher: &sdk.MatcherModule{
+func Module() sdkplugin.Module {
+	return sdkplugin.Module{
+		Kind: sdkplugin.PluginKindMatcher,
+		Matcher: &sdkplugin.MatcherModule{
 			Descriptor: moduleDescriptor(),
-			New: func(_ context.Context, host sdk.HostContext) (sdk.Matcher, error) {
+			New: func(_ context.Context, host sdkplugin.HostContext) (sdkplugin.Matcher, error) {
 				cfg, err := configFromHost(host)
 				if err != nil {
 					return nil, err

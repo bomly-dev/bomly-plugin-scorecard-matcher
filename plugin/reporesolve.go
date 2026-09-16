@@ -6,8 +6,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bomly-dev/bomly-sdk"
 	"github.com/bomly-dev/bomly-sdk/purlkit"
+
+	"github.com/bomly-dev/bomly-sdk/model"
 )
 
 // githubRepoPattern matches an org/repo segment in any github.com URL form
@@ -42,7 +43,7 @@ var githubRepoPattern = regexp.MustCompile(`github\.com[/:]([A-Za-z0-9_.-]+)/([A
 // Multiple packages frequently resolve to the same repo (a monorepo's npm
 // packages all point at one source); the matcher dedupes by the returned
 // key before fetching.
-func resolveRepo(pkg *sdk.Package) string {
+func resolveRepo(pkg *model.Package) string {
 	if pkg == nil {
 		return ""
 	}
@@ -66,7 +67,7 @@ func resolveRepo(pkg *sdk.Package) string {
 // preferred over an artifact URL: the first names a source repository
 // outright, while the second is a download location that merely happens to
 // be hosted on GitHub.
-func repoFromOrigins(origins []sdk.DependencyOrigin) string {
+func repoFromOrigins(origins []model.DependencyOrigin) string {
 	for _, origin := range origins {
 		if repo := extractGithubRepo(origin.Repository); repo != "" {
 			return repo
@@ -120,7 +121,7 @@ func repoFromMetadata(meta map[string]any) string {
 	if len(meta) == 0 {
 		return ""
 	}
-	if npm, ok := meta[sdk.MetadataKeyNPM].(*sdk.NPMPackageMetadata); ok && npm != nil {
+	if npm, ok := meta[model.MetadataKeyNPM].(*model.NPMPackageMetadata); ok && npm != nil {
 		// NPMPackageMetadata does not currently carry a `repository` field;
 		// when it does (or when a package.json scrape lands), this is the
 		// hook. Kept as an explicit branch so the surface is obvious.
