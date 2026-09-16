@@ -3,12 +3,12 @@ package plugin
 import (
 	"time"
 
-	"github.com/bomly-dev/bomly-sdk"
+	"github.com/bomly-dev/bomly-sdk/model"
 )
 
 // mapProject converts an api.scorecard.dev Project payload into the
 // neutral sdk.PackageScorecard shape attached to packages.
-func mapProject(repo string, p *Project) *sdk.PackageScorecard {
+func mapProject(repo string, p *Project) *model.PackageScorecard {
 	if p == nil {
 		return nil
 	}
@@ -16,7 +16,7 @@ func mapProject(repo string, p *Project) *sdk.PackageScorecard {
 	if repoName == "" {
 		repoName = repo
 	}
-	out := &sdk.PackageScorecard{
+	out := &model.PackageScorecard{
 		Source:           sourceName,
 		Repository:       repoName,
 		CommitSHA:        p.Repo.Commit,
@@ -29,9 +29,9 @@ func mapProject(repo string, p *Project) *sdk.PackageScorecard {
 		out.RunDate = ts.UTC()
 	}
 	if len(p.Checks) > 0 {
-		out.Checks = make([]sdk.PackageScorecardCheck, 0, len(p.Checks))
+		out.Checks = make([]model.PackageScorecardCheck, 0, len(p.Checks))
 		for _, c := range p.Checks {
-			out.Checks = append(out.Checks, sdk.PackageScorecardCheck{
+			out.Checks = append(out.Checks, model.PackageScorecardCheck{
 				Name:          c.Name,
 				Score:         c.Score,
 				Reason:        c.Reason,

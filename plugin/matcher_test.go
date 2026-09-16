@@ -8,8 +8,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/bomly-dev/bomly-sdk"
 	"github.com/bomly-dev/bomly-sdk/testkit"
+
+	"github.com/bomly-dev/bomly-sdk/model"
+	sdkplugin "github.com/bomly-dev/bomly-sdk/plugin"
 )
 
 const sampleResponse = `{
@@ -46,9 +48,9 @@ func newMatcher(t *testing.T, base string) *Matcher {
 	return m
 }
 
-func newGraph(t *testing.T, deps ...*sdk.DependencyNode) *sdk.Graph {
+func newGraph(t *testing.T, deps ...*model.DependencyNode) *model.Graph {
 	t.Helper()
-	g := sdk.New()
+	g := model.New()
 	for _, d := range deps {
 		if err := g.AddNode(d); err != nil {
 			t.Fatalf("AddNode: %v", err)
@@ -58,7 +60,7 @@ func newGraph(t *testing.T, deps ...*sdk.DependencyNode) *sdk.Graph {
 }
 
 // scorecardOf returns the enriched scorecard for a dependency from the registry.
-func scorecardOf(reg *sdk.PackageRegistry, dep *sdk.DependencyNode) *sdk.PackageScorecard {
+func scorecardOf(reg *model.PackageRegistry, dep *model.DependencyNode) *model.PackageScorecard {
 	pkg, ok := reg.Get(dep.NodeID())
 	if !ok || pkg == nil {
 		return nil
@@ -79,9 +81,9 @@ func TestMatch_AttachesScorecardToPackages(t *testing.T) {
 	matcher := newMatcher(t, base)
 	dep := testkit.MustDependencyNode(t, "pkg:github/ossf/scorecard@v5.0.0")
 	g := newGraph(t, dep)
-	registry := sdk.NewPackageRegistry()
+	registry := model.NewPackageRegistry()
 
-	res, err := matcher.Match(context.Background(), sdk.MatchRequest{Graph: g, Registry: registry})
+	res, err := matcher.Match(context.Background(), sdkplugin.MatchRequest{Graph: g, Registry: registry})
 	if err != nil {
 		t.Fatalf("Match: %v", err)
 	}
@@ -118,8 +120,8 @@ func TestMatch_CacheHitSkipsAPI(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 	dep1 := testkit.MustDependencyNode(t, "pkg:github/ossf/scorecard@v5.0.0")
-	reg1 := sdk.NewPackageRegistry()
-	if _, err := matcher1.Match(context.Background(), sdk.MatchRequest{Graph: newGraph(t, dep1), Registry: reg1}); err != nil {
+	reg1 := model.NewPackageRegistry()
+	if _, err := matcher1.Match(context.Background(), sdkplugin.MatchRequest{Graph: newGraph(t, dep1), Registry: reg1}); err != nil {
 		t.Fatalf("first Match: %v", err)
 	}
 
@@ -129,8 +131,8 @@ func TestMatch_CacheHitSkipsAPI(t *testing.T) {
 		t.Fatalf("New2: %v", err)
 	}
 	dep2 := testkit.MustDependencyNode(t, "pkg:github/ossf/scorecard@v5.0.0")
-	reg2 := sdk.NewPackageRegistry()
-	if _, err := matcher2.Match(context.Background(), sdk.MatchRequest{Graph: newGraph(t, dep2), Registry: reg2}); err != nil {
+	reg2 := model.NewPackageRegistry()
+	if _, err := matcher2.Match(context.Background(), sdkplugin.MatchRequest{Graph: newGraph(t, dep2), Registry: reg2}); err != nil {
 		t.Fatalf("second Match: %v", err)
 	}
 	if scorecardOf(reg2, dep2) == nil {
@@ -148,12 +150,12 @@ func TestMatch_NotFoundCachedAsSentinel(t *testing.T) {
 
 	dir := t.TempDir()
 	dep1 := testkit.MustDependencyNode(t, "pkg:github/unscored/repo@1.0.0")
-	reg1 := sdk.NewPackageRegistry()
+	reg1 := model.NewPackageRegistry()
 	matcher, err := New(Config{APIBase: base, CacheDir: dir})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if _, err := matcher.Match(context.Background(), sdk.MatchRequest{Graph: newGraph(t, dep1), Registry: reg1}); err != nil {
+	if _, err := matcher.Match(context.Background(), sdkplugin.MatchRequest{Graph: newGraph(t, dep1), Registry: reg1}); err != nil {
 		t.Fatalf("Match: %v", err)
 	}
 	if scorecardOf(reg1, dep1) != nil {
@@ -162,8 +164,8 @@ func TestMatch_NotFoundCachedAsSentinel(t *testing.T) {
 
 	// Second invocation should hit the sentinel cache (no extra API call).
 	dep2 := testkit.MustDependencyNode(t, "pkg:github/unscored/repo@1.0.0")
-	reg2 := sdk.NewPackageRegistry()
-	if _, err := matcher.Match(context.Background(), sdk.MatchRequest{Graph: newGraph(t, dep2), Registry: reg2}); err != nil {
+	reg2 := model.NewPackageRegistry()
+	if _, err := matcher.Match(context.Background(), sdkplugin.MatchRequest{Graph: newGraph(t, dep2), Registry: reg2}); err != nil {
 		t.Fatalf("second Match: %v", err)
 	}
 	if got := atomic.LoadInt32(calls); got != 1 {
@@ -178,8 +180,8 @@ func TestMatch_ServerErrorIsNonFatal(t *testing.T) {
 
 	matcher := newMatcher(t, base)
 	dep := testkit.MustDependencyNode(t, "pkg:github/example/repo@1.0.0")
-	reg := sdk.NewPackageRegistry()
-	if _, err := matcher.Match(context.Background(), sdk.MatchRequest{Graph: newGraph(t, dep), Registry: reg}); err != nil {
+	reg := model.NewPackageRegistry()
+	if _, err := matcher.Match(context.Background(), sdkplugin.MatchRequest{Graph: newGraph(t, dep), Registry: reg}); err != nil {
 		t.Fatalf("Match must not return an error on transport failure; got %v", err)
 	}
 	if scorecardOf(reg, dep) != nil {
@@ -196,8 +198,8 @@ func TestMatch_SkipsPackagesWithoutResolvableRepo(t *testing.T) {
 
 	matcher := newMatcher(t, srv.URL)
 	dep := testkit.MustDependencyNode(t, "pkg:npm/internal-only@1.0.0")
-	reg := sdk.NewPackageRegistry()
-	if _, err := matcher.Match(context.Background(), sdk.MatchRequest{Graph: newGraph(t, dep), Registry: reg}); err != nil {
+	reg := model.NewPackageRegistry()
+	if _, err := matcher.Match(context.Background(), sdkplugin.MatchRequest{Graph: newGraph(t, dep), Registry: reg}); err != nil {
 		t.Fatalf("Match: %v", err)
 	}
 	if called {
@@ -218,9 +220,9 @@ func TestMatch_ComponentModeOnlyEnrichesTarget(t *testing.T) {
 	target := testkit.MustDependencyNode(t, "pkg:github/ossf/scorecard@v5.0.0")
 	other := testkit.MustDependencyNode(t, "pkg:golang/github.com/sirupsen/logrus@v1.9.0")
 	g := newGraph(t, target, other)
-	reg := sdk.NewPackageRegistry()
+	reg := model.NewPackageRegistry()
 
-	if _, err := matcher.Match(context.Background(), sdk.MatchRequest{
+	if _, err := matcher.Match(context.Background(), sdkplugin.MatchRequest{
 		Graph:    g,
 		Registry: reg,
 		Target:   target,
@@ -244,7 +246,7 @@ func TestDescriptor_OptIn(t *testing.T) {
 	if d.Name != "scorecard" {
 		t.Errorf("Name = %q", d.Name)
 	}
-	if err := matcher.Ready(context.Background(), sdk.MatchRequest{}); err != nil {
+	if err := matcher.Ready(context.Background(), sdkplugin.MatchRequest{}); err != nil {
 		t.Errorf("Ready should succeed; no runtime dependency: %v", err)
 	}
 }

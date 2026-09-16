@@ -9,10 +9,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/bomly-dev/bomly-sdk"
 	cache "github.com/bomly-dev/bomly-sdk/filecache"
 	matchers "github.com/bomly-dev/bomly-sdk/matcherkit"
 	"go.uber.org/zap"
+
+	"github.com/bomly-dev/bomly-sdk/model"
+	sdkplugin "github.com/bomly-dev/bomly-sdk/plugin"
 )
 
 const defaultCacheTTL = 24 * time.Hour
@@ -122,8 +124,8 @@ func New(config Config) (*Matcher, error) {
 }
 
 // Descriptor returns the matcher registration metadata.
-func (m *Matcher) Descriptor() sdk.MatcherDescriptor {
-	return sdk.MatcherDescriptor{
+func (m *Matcher) Descriptor() sdkplugin.MatcherDescriptor {
+	return sdkplugin.MatcherDescriptor{
 		Name:        Name,
 		DisplayName: displayName,
 		// The package-updates delta protocol is adopted here because the
@@ -133,7 +135,7 @@ func (m *Matcher) Descriptor() sdk.MatcherDescriptor {
 		// has none, while the in-place path overwrites. This matcher is the
 		// sole producer of Package.Scorecard, so packages reach it un-scored
 		// and the two shapes agree in practice.
-		Capabilities: []string{sdk.CapabilityPackageUpdates},
+		Capabilities: []string{sdkplugin.CapabilityPackageUpdates},
 		// nil means all ecosystems, and that is the honest answer: this matcher
 		// is bounded by whether a package resolves to a github.com source repo
 		// (see resolveRepo in reporesolve.go), not by ecosystem. Any package
@@ -146,12 +148,12 @@ func (m *Matcher) Descriptor() sdk.MatcherDescriptor {
 
 // Ready reports whether this matcher can run. The Scorecard matcher only
 // needs HTTP egress; no local binary or auth is required.
-func (m *Matcher) Ready(context.Context, sdk.MatchRequest) error {
+func (m *Matcher) Ready(context.Context, sdkplugin.MatchRequest) error {
 	return nil
 }
 
 // Applicable reports whether this matcher applies to the given request.
-func (m *Matcher) Applicable(_ context.Context, _ sdk.MatchRequest) (bool, error) {
+func (m *Matcher) Applicable(_ context.Context, _ sdkplugin.MatchRequest) (bool, error) {
 	return true, nil
 }
 
@@ -160,7 +162,7 @@ func (m *Matcher) Applicable(_ context.Context, _ sdk.MatchRequest) (bool, error
 // to those packages. The matcher never returns an error from this method:
 // transport failures degrade to per-repo warnings so a bad network does not
 // abort the pipeline.
-func (m *Matcher) Match(ctx context.Context, req sdk.MatchRequest) (sdk.MatchResult, error) {
+func (m *Matcher) Match(ctx context.Context, req sdkplugin.MatchRequest) (sdkplugin.MatchResult, error) {
 	started := time.Now()
 	useDeltas := req.AcceptPackageUpdates
 	if req.Graph == nil || req.Registry == nil {
@@ -176,7 +178,7 @@ func (m *Matcher) Match(ctx context.Context, req sdk.MatchRequest) (sdk.MatchRes
 
 	// Group packages by resolved repo so we only fetch each repo once.
 	reposByPkg := make(map[string]string, len(packages)) // pkg.PURL -> repo key
-	pkgsByRepo := make(map[string][]*sdk.Package)
+	pkgsByRepo := make(map[string][]*model.Package)
 	repoOrder := make([]string, 0)
 	for _, pkg := range packages {
 		repo := resolveRepo(pkg)
@@ -198,7 +200,7 @@ func (m *Matcher) Match(ctx context.Context, req sdk.MatchRequest) (sdk.MatchRes
 	}
 
 	// Fetch each unique repo. Cache check first; 404 is cached as a sentinel.
-	scorecards := make(map[string]*sdk.PackageScorecard, len(repoOrder))
+	scorecards := make(map[string]*model.PackageScorecard, len(repoOrder))
 	for _, repo := range repoOrder {
 		key := cache.NewKey(repo, "", "scorecard", "")
 
@@ -246,7 +248,7 @@ func (m *Matcher) Match(ctx context.Context, req sdk.MatchRequest) (sdk.MatchRes
 	// Attach the resolved scorecard to every package whose repo we fetched:
 	// in place for legacy hosts, or as package-update deltas when the host
 	// accepts them.
-	var updates []*sdk.Package
+	var updates []*model.Package
 	for _, pkg := range packages {
 		if pkg == nil {
 			continue
@@ -260,8 +262,8 @@ func (m *Matcher) Match(ctx context.Context, req sdk.MatchRequest) (sdk.MatchRes
 			continue
 		}
 		if useDeltas {
-			updates = append(updates, &sdk.Package{
-				Coordinates: sdk.Coordinates{PURL: pkg.PURL},
+			updates = append(updates, &model.Package{
+				Coordinates: model.Coordinates{PURL: pkg.PURL},
 				Matched:     true,
 				Scorecard:   card.Clone(),
 			})
@@ -293,18 +295,18 @@ func (m *Matcher) Match(ctx context.Context, req sdk.MatchRequest) (sdk.MatchRes
 }
 
 // scorecardMatchResponse assembles the result for the requested response shape.
-func scorecardMatchResponse(registry *sdk.PackageRegistry, updates []*sdk.Package, useDeltas bool, stats sdk.MatcherStats) sdk.MatchResult {
+func scorecardMatchResponse(registry *model.PackageRegistry, updates []*model.Package, useDeltas bool, stats sdkplugin.MatcherStats) sdkplugin.MatchResult {
 	if useDeltas {
-		return sdk.MatchResult{PackageUpdates: updates, MatcherStats: stats}
+		return sdkplugin.MatchResult{PackageUpdates: updates, MatcherStats: stats}
 	}
-	return sdk.MatchResult{Registry: registry, MatcherStats: stats}
+	return sdkplugin.MatchResult{Registry: registry, MatcherStats: stats}
 }
 
-func scorecardMatcherStats(matchedPackages, unmatchedPackages int) sdk.MatcherStats {
+func scorecardMatcherStats(matchedPackages, unmatchedPackages int) sdkplugin.MatcherStats {
 	if unmatchedPackages < 0 {
 		unmatchedPackages = 0
 	}
-	return sdk.MatcherStats{
+	return sdkplugin.MatcherStats{
 		Name:              Name,
 		DisplayName:       displayName,
 		MatchedPackages:   matchedPackages,

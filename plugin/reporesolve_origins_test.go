@@ -3,7 +3,7 @@ package plugin
 import (
 	"testing"
 
-	sdk "github.com/bomly-dev/bomly-sdk"
+	"github.com/bomly-dev/bomly-sdk/model"
 )
 
 // TestResolveRepoReadsDetectedOrigins pins the fix for a silent regression the
@@ -19,30 +19,30 @@ import (
 func TestResolveRepoReadsDetectedOrigins(t *testing.T) {
 	cases := []struct {
 		name string
-		pkg  *sdk.Package
+		pkg  *model.Package
 		want string
 	}{
 		{
 			name: "repository origin",
-			pkg: &sdk.Package{
+			pkg: &model.Package{
 				PURL:            "pkg:npm/left-pad@1.3.0",
-				DetectedOrigins: []sdk.DependencyOrigin{{Repository: "https://github.com/ossf/scorecard", Revision: "abc123"}},
+				DetectedOrigins: []model.DependencyOrigin{{Repository: "https://github.com/ossf/scorecard", Revision: "abc123"}},
 			},
 			want: "github.com/ossf/scorecard",
 		},
 		{
 			name: "artifact origin hosted on github",
-			pkg: &sdk.Package{
+			pkg: &model.Package{
 				PURL:            "pkg:npm/left-pad@1.3.0",
-				DetectedOrigins: []sdk.DependencyOrigin{{ArtifactURL: "https://github.com/ossf/scorecard/archive/v5.0.0.tar.gz"}},
+				DetectedOrigins: []model.DependencyOrigin{{ArtifactURL: "https://github.com/ossf/scorecard/archive/v5.0.0.tar.gz"}},
 			},
 			want: "github.com/ossf/scorecard",
 		},
 		{
 			name: "a repository claim outranks an artifact URL",
-			pkg: &sdk.Package{
+			pkg: &model.Package{
 				PURL: "pkg:npm/left-pad@1.3.0",
-				DetectedOrigins: []sdk.DependencyOrigin{
+				DetectedOrigins: []model.DependencyOrigin{
 					{ArtifactURL: "https://github.com/mirror/copy/archive/v1.tar.gz"},
 					{Repository: "https://github.com/ossf/scorecard"},
 				},
@@ -51,9 +51,9 @@ func TestResolveRepoReadsDetectedOrigins(t *testing.T) {
 		},
 		{
 			name: "no github source anywhere",
-			pkg: &sdk.Package{
+			pkg: &model.Package{
 				PURL:            "pkg:npm/left-pad@1.3.0",
-				DetectedOrigins: []sdk.DependencyOrigin{{Repository: "https://gitlab.com/owner/repo"}},
+				DetectedOrigins: []model.DependencyOrigin{{Repository: "https://gitlab.com/owner/repo"}},
 			},
 			want: "",
 		},
@@ -72,7 +72,7 @@ func TestResolveRepoReadsDetectedOrigins(t *testing.T) {
 // that was never through a node constructor — can still carry them, and
 // dropping the step would lose a source the document did state.
 func TestResolveRepoStillReadsQualifiers(t *testing.T) {
-	pkg := &sdk.Package{PURL: "pkg:npm/left-pad@1.3.0?repository_url=https://github.com/ossf/scorecard"}
+	pkg := &model.Package{PURL: "pkg:npm/left-pad@1.3.0?repository_url=https://github.com/ossf/scorecard"}
 	if got := resolveRepo(pkg); got != "github.com/ossf/scorecard" {
 		t.Errorf("resolveRepo = %q, want the qualifier fallback to still work", got)
 	}

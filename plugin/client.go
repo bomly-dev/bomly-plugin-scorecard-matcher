@@ -9,8 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bomly-dev/bomly-sdk"
 	"github.com/bomly-dev/bomly-sdk/system"
+
+	"github.com/bomly-dev/bomly-sdk/httpkit"
 )
 
 const (
@@ -30,7 +31,7 @@ type ClientConfig struct {
 	Timeout            time.Duration
 	UserAgent          string
 	HTTPClient         *http.Client
-	HTTPClientProvider *sdk.HTTPClientProvider
+	HTTPClientProvider *httpkit.ClientProvider
 }
 
 // DefaultClientConfig returns a production-ready default config.
@@ -59,9 +60,9 @@ func NewClient(config ClientConfig) *Client {
 	if httpClient == nil {
 		provider := config.HTTPClientProvider
 		if provider == nil {
-			provider, _ = sdk.NewHTTPClientProviderFromEnv()
+			provider, _ = httpkit.NewClientProviderFromEnv()
 			if provider == nil {
-				provider, _ = sdk.NewHTTPClientProvider(sdk.HTTPClientConfig{})
+				provider, _ = httpkit.NewClientProvider(httpkit.ClientConfig{})
 			}
 		}
 		httpClient = provider.Client(config.Timeout)
