@@ -49,10 +49,6 @@ own origins, PURL, and resolved URL; it contacts no repository host. Setting
 `cache_dir` or `api_base` moves the cache or the API to a place you chose; the
 declaration describes the defaults.
 
-The descriptor also declares `Requires: dependency-graph-v1`: the matcher
-scores the dependency nodes of the graph it receives, so Bomly skips it with a
-warning when detection found no dependencies.
-
 ## Configuration
 
 Embedded execution is configured through the Bomly CLI's own `scorecard`
