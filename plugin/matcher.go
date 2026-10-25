@@ -143,6 +143,11 @@ func (m *Matcher) Descriptor() sdkplugin.MatcherDescriptor {
 		// so an ecosystem list would be wrong in both directions.
 		SupportedEcosystems: nil,
 		Tags:                []string{"project-posture"},
+		// Match walks the dependency nodes of req.Graph (through
+		// RegistryPackagesForGraph) rather than the registry it receives, and
+		// returns nothing when the graph has none, so a dependency graph is
+		// the one input it cannot work without.
+		Requires: sdkplugin.Requirements{sdkplugin.RequirementDependencyGraph},
 	}
 }
 

@@ -33,6 +33,26 @@ repositories the service has not scored are cached as a not-scored sentinel so
 they are not re-requested within the TTL. Transport failures degrade to
 warnings — a bad network never aborts the scan. Cache failures are non-fatal.
 
+## Access
+
+`bomly-plugin.json` declares what the matcher touches, which Bomly shows when
+you install it and in `bomly plugin info`. It is a disclosure, not a sandbox.
+
+| Access | Why |
+| --- | --- |
+| Reads and writes `home` | The response cache, `~/.bomly/cache/scorecard` by default |
+| Network `api.scorecard.dev` | The Scorecard API the matcher queries, the default `api_base` |
+| Environment `HOME`, `USERPROFILE` | `os.UserHomeDir` reads `HOME` (`USERPROFILE` on Windows) to locate the default cache directory |
+
+Resolving a package to its `github.com` repository reads only the package's
+own origins, PURL, and resolved URL; it contacts no repository host. Setting
+`cache_dir` or `api_base` moves the cache or the API to a place you chose; the
+declaration describes the defaults.
+
+The descriptor also declares `Requires: dependency-graph-v1`: the matcher
+scores the dependency nodes of the graph it receives, so Bomly skips it with a
+warning when detection found no dependencies.
+
 ## Configuration
 
 Embedded execution is configured through the Bomly CLI's own `scorecard`
