@@ -143,6 +143,9 @@ func (m *Matcher) Descriptor() sdkplugin.MatcherDescriptor {
 		// so an ecosystem list would be wrong in both directions.
 		SupportedEcosystems: nil,
 		Tags:                []string{"project-posture"},
+		// No Requires: the host runs matchers only after detection produced
+		// dependencies, so a declared dependency graph would add a warning
+		// on an empty scan and nothing else.
 	}
 }
 
