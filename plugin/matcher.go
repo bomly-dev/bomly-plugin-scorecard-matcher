@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"time"
 
 	cache "github.com/bomly-dev/bomly-sdk/filecache"
@@ -57,12 +55,16 @@ func DefaultConfig() Config {
 	}
 }
 
+// defaultCacheDir returns ~/.bomly/cache/scorecard, or "" -- which runs the
+// matcher without a cache -- when there is no home directory. It never falls
+// back to a path relative to the working directory, which no access
+// declaration describes (bomly-planning#115).
 func defaultCacheDir() string {
-	home, err := os.UserHomeDir()
+	dir, err := cache.DefaultDir("scorecard")
 	if err != nil {
-		return filepath.Join(".bomly-cache", "scorecard")
+		return ""
 	}
-	return filepath.Join(home, ".bomly", "cache", "scorecard")
+	return dir
 }
 
 // Matcher attaches OpenSSF Scorecard runs to packages whose upstream source
@@ -105,9 +107,15 @@ func New(config Config) (*Matcher, error) {
 		clientConfig = *config.ClientConfig
 	}
 
-	fileCache, err := cache.NewFileCache(config.CacheDir, config.CacheTTL)
-	if err != nil {
-		return nil, fmt.Errorf("scorecard matcher: %w", err)
+	// No directory means no cache: a nil *FileCache misses every Get and
+	// ignores every Set, so the matcher runs uncached.
+	var fileCache *cache.FileCache
+	if config.CacheDir != "" {
+		var err error
+		fileCache, err = cache.NewFileCache(config.CacheDir, config.CacheTTL)
+		if err != nil {
+			return nil, fmt.Errorf("scorecard matcher: %w", err)
+		}
 	}
 
 	logger := config.Logger
