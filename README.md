@@ -47,7 +47,7 @@ you install it and in `bomly plugin info`. It is a disclosure, not a sandbox.
 Resolving a package to its `github.com` repository reads only the package's
 own origins, PURL, resolved URL and metadata; it contacts no repository host.
 Setting `cache_dir` or `api_base` moves the cache or the API to a place you
-chose; the declaration describes the defaults. If Bomly cannot find your home directory, the cache falls back to `.bomly-cache/scorecard` in the directory Bomly runs in, which the access block does not cover ([bomly-planning#115](https://github.com/bomly-dev/bomly-planning/issues/115)).
+chose; the declaration describes the defaults. If Bomly cannot find your home directory, the matcher runs without a cache.
 
 ## Configuration
 

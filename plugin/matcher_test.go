@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -248,5 +249,41 @@ func TestDescriptor_OptIn(t *testing.T) {
 	}
 	if err := matcher.Ready(context.Background(), sdkplugin.MatchRequest{}); err != nil {
 		t.Errorf("Ready should succeed; no runtime dependency: %v", err)
+	}
+}
+
+// TestNoHomeDirectoryRunsWithoutACache is bomly-planning#115: with no home
+// directory there is no default cache, so the matcher still constructs,
+// still enriches -- fetching every time -- and writes nothing into the
+// directory it was started in.
+func TestNoHomeDirectoryRunsWithoutACache(t *testing.T) {
+	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "")
+	t.Setenv("home", "")
+	cwd := t.TempDir()
+	t.Chdir(cwd)
+	base, calls := newServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(sampleResponse))
+	})
+	matcher, err := New(Config{APIBase: base})
+	if err != nil {
+		t.Fatalf("New with no home directory: %v", err)
+	}
+	dep := testkit.MustDependencyNode(t, "pkg:github/ossf/scorecard@v5.0.0")
+	for range 2 {
+		registry := model.NewPackageRegistry()
+		if _, err := matcher.Match(context.Background(), sdkplugin.MatchRequest{Graph: newGraph(t, dep), Registry: registry}); err != nil {
+			t.Fatalf("Match: %v", err)
+		}
+		if scorecardOf(registry, dep) == nil {
+			t.Fatal("the uncached matcher did not enrich")
+		}
+	}
+	if got := atomic.LoadInt32(calls); got != 2 {
+		t.Errorf("API calls = %d, want 2: nothing should be cached", got)
+	}
+	if entries, _ := os.ReadDir(cwd); len(entries) != 0 {
+		t.Errorf("the matcher wrote %d entries into the working directory", len(entries))
 	}
 }
